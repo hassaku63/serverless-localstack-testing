@@ -1,0 +1,128 @@
+service: sfn-ftest
+
+
+provider:
+  name: aws
+  runtime: python3.8
+  stage: ${opt:stage}
+  region: ${opt:region}
+# you can add statements to the Lambda function's IAM Role here
+#  iamRoleStatements:
+#    - Effect: "Allow"
+#      Action:
+#        - "s3:ListBucket"
+#      Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
+#    - Effect: "Allow"
+#      Action:
+#        - "s3:PutObject"
+#      Resource:
+#        Fn::Join:
+#          - ""
+#          - - "arn:aws:s3:::"
+#            - "Ref" : "ServerlessDeploymentBucket"
+#            - "/*"
+
+# you can define service wide environment variables here
+#  environment:
+#    variable1: value1
+
+plugins:
+  - serverless-step-functions
+  # - serverless-offline
+  - serverless-localstack
+
+# you can add packaging information here
+#package:
+#  include:
+#    - include-me.py
+#    - include-me-dir/**
+#  exclude:
+#    - exclude-me.py
+#    - exclude-me-dir/**
+
+# custom:
+#   serverless-offline:
+#     httpsProtocol: "dev-certs"
+#     httpPort: 4000
+#     stageVariables:
+#       foo: "bar"
+
+functions:
+  hello:
+    handler: handler.hello
+  WorkflowState1:
+    handler: sfn/workflow1/state1.handler
+  WorkflowState2:
+    handler: sfn/workflow1/state2.handler
+  WorkflowState3:
+    handler: sfn/workflow1/state3.handler
+
+
+# you can add CloudFormation resource templates here
+#resources:
+#  Resources:
+#    NewResource:
+#      Type: AWS::S3::Bucket
+#      Properties:
+#        BucketName: my-new-bucket
+#  Outputs:
+#     NewOutput:
+#       Description: "Description for the output"
+#       Value: "Some output value"
+
+stepFunctions:
+  stateMachines:
+  workflow1:
+      # name: ${self:serivce}-workflow-1-${self:provider.stage}
+      definition:
+        StartAt: state1
+        States:
+          state1:
+            Type: Task
+            Resource: !GetAtt [WorkflowState1, Arn]
+            # !ImportValue [別スタックにいる lambda のやつ]
+            Next: state2
+          state2:
+            Type: Task
+            Resource: !GetAtt [WorkflowState2, Arn]
+            Next: selectState
+          selectState:
+            Type: Choice
+            Choices:
+              - Variable: $.state
+                NumericGreaterThanEquals: 1
+                Next: state3
+            Default: failState
+          failState:
+            Type: Fail
+          state3:
+            Type: Task
+            Resource: !GetAtt [WorkflowState3, Arn]
+            End: true
+
+custom:
+  localstack:
+    stages:
+      # list of stages for which the plugin should be enabled
+      - local
+    host: http://localhost  # optional - LocalStack host to connect to
+    edgePort: 4566  # optional - LocalStack edge port to connect to
+    autostart: true  # optional - Start LocalStack in Docker on Serverless deploy
+    lambda:
+      # Enable this flag to improve performance
+      mountCode: True
+    # docker:
+    #   # Enable this flag to run "docker ..." commands as sudo
+    #   sudo: False
+    environment:
+      - SERVICES=s3,cloudformation,lambda,stepfunctions
+      - DEBUG=1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    # endpoints:
+    #   S3: http://localhost:4566
+    #   CloudFormation: http://localhost:4566
+    #   Lambda: http://localhost:4566
+    #   StepFunctions: http://localhost:4566
+    # stages:
+  #   local:
+    

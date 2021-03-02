@@ -1,0 +1,17 @@
+version: '3.1'
+
+services:
+  localstack:
+    container_name: "${LOCALSTACK_DOCKER_NAME-localstack_main}"
+    image: localstack/localstack
+    network_mode: bridge
+    environment:
+      - SERVICES=lambda,stepfunctions
+      - DEBUG=1
+      # - DOCKER_HOST=unix:///var/run/docker.sock
+      - IS_OFFLINE=true
+    ports:
+      - "4566:4566"
+    volumes:
+      # - "${TMPDIR:-/tmp/localstack}:/tmp/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
